@@ -1,0 +1,37 @@
+Premise: use the Alpha Vantage FX API as the basis for bulding a Nuxt currency conversion app
+
+1) Find the FX API documentation
+https://www.alphavantage.co/documentation/#currency-exchange
+
+2) Get a free API key
+https://www.alphavantage.co/support/#api-key
+https://temp-mail.org/en/
+
+O90Q3N2XJ5EFMT18
+
+3) Find the list of FX currencies
+(physical)
+https://www.alphavantage.co/physical_currency_list/
+
+digital/crypto
+https://www.alphavantage.co/digital_currency_list/
+
+4) Example call to get USD to JPY conversion
+https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=USD&to_currency=JPY&apikey=demo
+(Note that apparently we can use 'demo' as the API key which is wehat I am going to do; I'm guessing this
+would be throttled/limited in some way?) 
+
+5) Create a Currency.vue page which:
+i) contains selection dropdowns for the source and destination currencies
+ii) contains input box for the transaction amount
+iii) fetches the conversion rate from the AV FX API and displays it, also displays the final conversion amount
+iv) contains reactive state vars that when changed will automatically cause a re-fetch of the conversion rate
+v) fetches a list of FX currencies on load of the page
+
+From projects root folder...
+
+Steps:
+1) npx nuxi@latest init currency-converter
+2) cd currency-converter
+3) npx nuxi module add eslint
+4) npm run dev
