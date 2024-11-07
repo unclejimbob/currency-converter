@@ -8,6 +8,8 @@ https://www.alphavantage.co/support/#api-key
 https://temp-mail.org/en/
 
 O90Q3N2XJ5EFMT18
+Y86UHH9OVD46G2ZX
+W56J79935DH5DM3C
 
 3) Find the list of FX currencies
 (physical)
@@ -18,15 +20,26 @@ https://www.alphavantage.co/digital_currency_list/
 
 4) Example call to get USD to JPY conversion
 https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=USD&to_currency=JPY&apikey=demo
-(Note that apparently we can use 'demo' as the API key which is wehat I am going to do; I'm guessing this
-would be throttled/limited in some way?) 
+Note that apparently we can use 'demo' as the API key which is what I am going to do; I'm guessing this
+would be throttled/limited in some way?
+EDIT: Nope, doesn't like the 'demo' key, here's the response from a postman request:
+{
+    "Information": "The **demo** API key is for demo purposes only. Please claim your free API key at (https://www.alphavantage.co/support/#api-key) to explore our full API offerings. It takes fewer than 20 seconds."
+}
 
-5) Create a Currency.vue page which:
+5) Also note that the limit is 25 requests per day so we have to handle this issue where the API doesn't error
+but returns this instead, I think I need to destructure the request to pick up and display the API's message
+if I get "Information" or "Note" as the return type
+{
+    "Information": "Thank you for using Alpha Vantage! Our standard API rate limit is 25 requests per day. Please subscribe to any of the premium plans at https://www.alphavantage.co/premium/ to instantly remove all daily rate limits."
+}
+
+6) Create a Currency.vue page which:
 i) contains selection dropdowns for the source and destination currencies
 ii) contains input box for the transaction amount
 iii) fetches the conversion rate from the AV FX API and displays it, also displays the final conversion amount
 iv) contains reactive state vars that when changed will automatically cause a re-fetch of the conversion rate
-v) fetches a list of FX currencies on load of the page
+v) fetches a list of FX currencies on load of the page (lazyFetch)
 
 From projects root folder...
 
