@@ -1,3 +1,8 @@
+<!-- 
+Todo: 
+1) Disable all action buttons and/or stop a fetch if the source and destination currencies are the same
+2) Suppress display of currency conversion result if monetary value is null/undefined
+-->
 <template>
   <div>
     <h1>Currency converter</h1>
@@ -76,8 +81,8 @@
     <button @click="currencyConversionExecute()">Convert</button>
 
     <!-- Button to swap source and destination currency values 
-         in order to get a working currency conversion data, some conversions only work one way        
-         For example GBP -> ALL is fine but ALL -> GBP doesn't work  -->
+         in order to get FX currency conversion data, some conversions only work one way        
+         For example GBP -> ALL is fine but ALL -> GBP doesn't work -->
     <button @click="swapCurrencies">Swap</button>
 
     <!-- Display the loading status of the FX currency conversion -->
@@ -98,7 +103,7 @@
     <!-- Section to show the results of the FX conversion, only show when there are results and the most recent 
      fetch status is success -->
     <div v-if="typeof currencyData === 'string'" class="status error">
-      <!-- This would display an information message -->
+      <!-- This would display an 'error' which is really an information message -->
       <p>{{ currencyData }}</p>
     </div>
     <div
@@ -136,7 +141,8 @@
 
 <script setup lang="ts">
 // Define some interfaces that make life easier
-// This interface is how I would like to refer to FX currency exchange properties from the currency exchange response
+// This interface is how I would like to refer to FX currency exchange properties from a typical
+// currency exchange response
 interface CurrencyExchangeRate {
   fromCurrencyCode: string;
   fromCurrencyName: string;
@@ -149,7 +155,7 @@ interface CurrencyExchangeRate {
   askPrice: number;
 }
 
-// This interface is how the response actually looks like when I get it from the currency exchange response
+// This interface is how the typical response actually looks like when I get it from the currency exchange response
 interface RawCurrencyExchangeRate {
   "1. From_Currency Code": string;
   "2. From_Currency Name": string;
@@ -162,11 +168,17 @@ interface RawCurrencyExchangeRate {
   "9. Ask Price": string;
 }
 
-// This is the top level of the currency exchange response
+// This is the top level of the currency exchange response, there are multiple patterns
+// Note that if you don't handle all the patterns then expect issues if you are trying
+// to destructure them, for example if you max out the rate limit and don't handle the
+// Information/Note reponse then it will just fail silently and because no error is thrown
+// by the API you'll be sitting looking at a valid but blank set of values from the response
+// and scratching your head
 interface ApiResponse {
   "Realtime Currency Exchange Rate"?: RawCurrencyExchangeRate;
   Information?: string; // For rate limit messages or other information
-  Note?: string; // For rate limit messages or other information
+  Note?: string; // For rate limit messages or other information, not sure what the difference is
+  // between this and 'Information'
 }
 
 // Results from a typical currency conversion API call
@@ -203,33 +215,25 @@ const destinationCurrency = useState(() => "USD"); // Default to 'USD'
 // button if you want an updated exchange rate, but it will locally update the 'Converted amount' which is handy
 const monetaryAmount = useState(() => 100); // Default to 100
 
-// Computed property to get the name of the selected source currency
-const sourceCurrencyName = computed(() => {
-  // Have to do this because of the lazyFetch where FX currency code data may not yet be available
-  // even though navigation to the currency page has occurred
-  if (!currencyList.value || currencyList.value.length === 0) {
-    return ""; // Return an empty string if there's no data (yet)
-  }
+// Function to return the name of the selected currency
+const getCurrencyName = (currencyCode: Ref<string>) =>
+  computed(() => {
+    // Have to do this because of the lazyFetch where FX currency code data may not yet be available
+    // even though navigation to the currency page has occurred
+    if (!currencyList.value || currencyList.value.length === 0) {
+      return ""; // Return an empty string if there's no data (yet)
+    }
 
-  const selected = currencyList.value.find(
-    (currency: { code: string }) => currency.code === sourceCurrency.value
-  );
-  return selected ? selected.name : ""; // Return the currency name or an empty string
-});
+    const selected = currencyList.value.find(
+      (currency: { code: string }) => currency.code === currencyCode.value
+    );
 
-// Computed property to get the name of the selected destination currency
-const destinationCurrencyName = computed(() => {
-  // Have to do this because of the lazyFetch where FX currency code data may not yet be available
-  // even though navigation to the currency page has occurred
-  if (!currencyList.value || currencyList.value.length === 0) {
-    return ""; // Return an empty string if there's no data (yet)
-  }
+    return selected ? selected.name : ""; // Return the currency name or an empty string
+  });
 
-  const selected = currencyList.value.find(
-    (currency: { code: string }) => currency.code === destinationCurrency.value
-  );
-  return selected ? selected.name : ""; // Return the currency name or an empty string
-});
+// Source and destination currency names
+const sourceCurrencyName = getCurrencyName(sourceCurrency);
+const destinationCurrencyName = getCurrencyName(destinationCurrency);
 
 // For storing/retrieving local payload
 const nuxtApp = useNuxtApp();
@@ -237,7 +241,7 @@ const nuxtApp = useNuxtApp();
 // Fetch currencies - just once
 const urlCurrencyList = "https://www.alphavantage.co/physical_currency_list/";
 
-// Load the list of foreign currency codes we can select from
+// Load the list of FX currency codes we can select from
 const {
   data: currencyList,
   status: currencyStatus,
@@ -254,7 +258,7 @@ const {
     // Split CSV into rows
     const rows = csvData.trim().split("\n");
 
-    // Map remaining rows to an array of objects based on headers
+    // Map remaining rows to an array of objects based on the headers
     return rows
       .slice(1) // skip the header row
       .map((row) => {
@@ -271,7 +275,9 @@ const {
 });
 
 // Computed property to return the currency exchange response destructured into something more useful
-// with appropriate data types in place, have to handle differenr response formats :(
+// with appropriate data types in place, have to handle different response formats :(
+
+// There has to be a more elegant way to do this than via a lot of if/elses
 const currencyData = computed<CurrencyExchangeRate | null | string>(() => {
   const rawData = currencyConversion.value;
 
@@ -291,14 +297,14 @@ const currencyData = computed<CurrencyExchangeRate | null | string>(() => {
     };
   }
 
-  // Check if the response contains an information message (e.g., rate limit message)
+  // Check if the response contains an information message (e.g. rate limit message and how to ask for an API key)
   else if (rawData?.Information) {
     return rawData.Information; // Return this as an error message to display
   }
 
-  // Check if the response contains a rate limit note
+  // Check if the response contains a note (e.g. how to rate limit note about how many requests are allowed - 25/day)
   else if (rawData?.Note) {
-    return rawData.Note;
+    return rawData.Note; // Return this as an error message to display
   }
 
   // If neither format is matched, return null
@@ -325,7 +331,7 @@ const {
   timeout: 3000, // Have to do this because sometimes it never returns, not sure what the timeout value is at their end
 });
 
-// Swap currenncies in the event that a conversion isn't valid, this happens quite a lot unless we use major/well known
+// Swap currencies in the event that a conversion isn't valid, this happens quite a lot unless we use major/well known
 // currencies. e.g. try getting someone to convert Sri Lankan Rupee into Armenian Dram - never gonna happen :)
 const swapCurrencies = () => {
   const temp = sourceCurrency.value;
